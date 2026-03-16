@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { Dashboard } from './components/Dashboard';
 import { Previewer } from './components/Previewer';
@@ -16,6 +16,26 @@ export default function App() {
   const [rawData, setRawData] = useState<RawContractData[] | null>(null);
   const [processedData, setProcessedData] = useState<ProcessedContract[] | null>(null);
   const [activeView, setActiveView] = useState<'upload' | 'preview' | 'dashboard'>('upload');
+
+  // Check for data from the API on mount
+  useEffect(() => {
+    const fetchLatestData = async () => {
+      try {
+        const response = await fetch('/api/data');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setRawData(data);
+            setProcessedData(processContractData(data));
+            setActiveView('dashboard');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch latest data:', error);
+      }
+    };
+    fetchLatestData();
+  }, []);
 
   const handleDataLoaded = (data: RawContractData[]) => {
     setRawData(data);
