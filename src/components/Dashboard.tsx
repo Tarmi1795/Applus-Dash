@@ -183,7 +183,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
   }, [data, startDate, endDate, selectedClient, selectedContract, selectedDepartment, viewType]);
 
   const runningBalanceData = useMemo(() => {
-    const monthsMap = new Map<string, Date>();
+    const timeMap = new Map<string, Date>();
     const start = startDate ? startOfMonth(new Date(startDate)) : null;
     const end = endDate ? startOfMonth(new Date(endDate)) : null;
 
@@ -194,16 +194,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
         
         const isInRange = (!start || pm.month >= start) && (!end || pm.month <= end);
         if (isInRange) {
-          const key = format(pm.month, 'yyyy-MM');
-          monthsMap.set(key, pm.month);
+          const key = viewType === 'monthly' 
+            ? format(pm.month, 'yyyy-MM')
+            : format(pm.month, 'yyyy');
+          
+          // For yearly, we want the balance at the end of the year (or latest month in range)
+          if (!timeMap.has(key) || pm.month > timeMap.get(key)!) {
+            timeMap.set(key, pm.month);
+          }
         }
       });
     });
 
-    const sortedMonthKeys = Array.from(monthsMap.keys()).sort();
+    const sortedKeys = Array.from(timeMap.keys()).sort();
     
-    return sortedMonthKeys.map(key => {
-      const targetDate = monthsMap.get(key)!;
+    return sortedKeys.map(key => {
+      const targetDate = timeMap.get(key)!;
       let totalRemainingAtDate = 0;
 
       data.forEach(c => {
@@ -223,11 +229,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
       });
 
       return {
-        name: format(targetDate, 'MMM yyyy'),
+        name: viewType === 'monthly' ? format(targetDate, 'MMM yyyy') : format(targetDate, 'yyyy'),
         Balance: totalRemainingAtDate
       };
     });
-  }, [data, startDate, endDate, selectedClient, selectedContract, selectedDepartment]);
+  }, [data, startDate, endDate, selectedClient, selectedContract, selectedDepartment, viewType]);
 
   const topClientsData = useMemo(() => {
     const clientMap = new Map<string, number>();
@@ -714,9 +720,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
                 </div>
               </div>
               
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyTrendData}>
+              <div className="flex-1 min-h-[400px]">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <LineChart data={monthlyTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis 
                       dataKey="name" 
@@ -824,13 +830,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
               <div className="flex justify-between items-center mb-8">
                 <div className="space-y-1">
                   <h3 className="text-xl font-sans font-semibold">Running Balance</h3>
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-gray-400">Cumulative Portfolio Outstanding // Time Series</p>
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-gray-400">{viewType === 'monthly' ? 'Monthly' : 'Yearly'} Cumulative Portfolio Outstanding // Time Series</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setViewType('monthly')}
+                    className={`w-10 h-10 border border-white/5 flex items-center justify-center text-[10px] font-mono transition-colors ${viewType === 'monthly' ? 'bg-copper text-obsidian' : 'text-gray-500 hover:bg-white/5'}`}
+                  >
+                    M
+                  </button>
+                  <button 
+                    onClick={() => setViewType('yearly')}
+                    className={`w-10 h-10 border border-white/5 flex items-center justify-center text-[10px] font-mono transition-colors ${viewType === 'yearly' ? 'bg-copper text-obsidian' : 'text-gray-500 hover:bg-white/5'}`}
+                  >
+                    Y
+                  </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-x-auto scrollbar-thin scrollbar-thumb-copper/20 scrollbar-track-transparent">
-                <div style={{ minWidth: runningBalanceData.length * 60, height: '100%' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={runningBalanceData}>
+              <div className="flex-1 min-h-[350px] overflow-x-auto scrollbar-thin scrollbar-thumb-copper/20 scrollbar-track-transparent">
+                <div style={{ 
+                  minWidth: viewType === 'monthly' ? Math.max(800, runningBalanceData.length * 60) : '100%', 
+                  height: '100%',
+                  minHeight: '350px'
+                }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <LineChart data={runningBalanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                       <XAxis 
                         dataKey="name" 
